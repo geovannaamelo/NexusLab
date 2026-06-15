@@ -1,0 +1,29 @@
+{
+  "name": "nexus-lab-app-completo",
+  "version": "1.0.0",
+  "description": "Sistema de reserva e controle de laboratórios com frontend, backend Node.js e MySQL.",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "nodemon backend/server.js",
+    "start": "node backend/server.js",
+    "install:backend": "npm --prefix backend install",
+    "dev:backend": "npm --prefix backend run dev"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "mysql",
+    "banco-de-dados"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mysql2": "^3.11.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

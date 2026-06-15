@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- Define o conjunto de caracteres da página.
+       UTF-8 permite usar acentos e caracteres especiais. -->
+  <meta charset="UTF-8">
+
+  <!-- Faz a página se adaptar ao tamanho da tela do usuário. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Título que aparece na aba do navegador. -->
+  <title>Reservas | NEXUS Lab</title>
+
+  <!-- Importa o arquivo CSS principal do sistema. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- Cabeçalho da página de reservas. -->
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <!-- Título da tela. -->
+        <h1>Reservas</h1>
+
+        <!-- Descrição da função da página. -->
+        <p>Cadastro e listagem das reservas dos laboratórios.</p>
+      </div>
+
+      <!-- Selo destacando o recurso de banco usado nesta tela. -->
+      <span class="header-badge">Procedure: sp_criar_reserva</span>
+    </div>
+  </header>
+
+  <!-- Menu de navegação entre as telas do sistema. -->
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html">Usuários</a>
+      <a href="laboratorios.html">Laboratórios</a>
+      <a href="equipamentos.html">Equipamentos</a>
+
+      <!-- class="active" indica que esta é a página aberta no momento. -->
+      <a href="reservas.html" class="active">Reservas</a>
+
+      <a href="manutencoes.html">Manutenções</a>
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <!-- Conteúdo principal da página. -->
+  <main>
+    <!-- Área usada para mostrar mensagens de sucesso, erro ou aviso. -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Card com o formulário para criar uma nova reserva. -->
+    <section class="card">
+      <h2>Nova reserva</h2>
+
+      <!-- Explicação sobre os recursos do banco utilizados ao criar reserva. -->
+      <p>
+        A criação usa procedure no MySQL. A trigger impede conflito de horário
+        para o mesmo laboratório.
+      </p>
+
+      <!-- Formulário de cadastro de reserva. -->
+      <form id="form-reserva">
+        <div class="form-grid">
+
+          <!-- Campo que será preenchido com os usuários vindos do banco. -->
+          <div>
+            <label for="id_usuario">Usuário</label>
+            <select id="id_usuario" name="id_usuario" required></select>
+          </div>
+
+          <!-- Campo que será preenchido com os laboratórios vindos do banco. -->
+          <div>
+            <label for="id_laboratorio">Laboratório</label>
+            <select id="id_laboratorio" name="id_laboratorio" required></select>
+          </div>
+
+          <!-- Campo para escolher a data da reserva. -->
+          <div>
+            <label for="data_reserva">Data</label>
+            <input id="data_reserva" name="data_reserva" type="date" required>
+          </div>
+
+          <!-- Campo para informar o horário inicial da reserva. -->
+          <div>
+            <label for="hora_inicio">Hora início</label>
+            <input id="hora_inicio" name="hora_inicio" type="time" required>
+          </div>
+
+          <!-- Campo para informar o horário final da reserva. -->
+          <div>
+            <label for="hora_fim">Hora fim</label>
+            <input id="hora_fim" name="hora_fim" type="time" required>
+          </div>
+        </div>
+
+        <!-- Botões do formulário. -->
+        <div class="actions">
+          <!-- Envia os dados para o backend criar a reserva. -->
+          <button type="submit">Criar reserva</button>
+
+          <!-- Limpa os campos do formulário. -->
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Card com a tabela de reservas cadastradas. -->
+    <section class="card section-space">
+      <div class="card-header">
+        <div>
+          <h2>Reservas cadastradas</h2>
+
+          <!-- Explica que a tabela não consulta diretamente apenas uma tabela simples,
+               mas sim uma View do banco. -->
+          <p>Esta tabela consome a View <strong>vw_reservas_detalhadas</strong>.</p>
+        </div>
+
+        <!-- Botão para recarregar manualmente a tabela. -->
+        <button class="secondary" id="btn-atualizar">Atualizar</button>
+      </div>
+
+      <!-- Tabela onde as reservas serão exibidas. -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Usuário</th>
+              <th>Laboratório</th>
+              <th>Data</th>
+              <th>Início</th>
+              <th>Fim</th>
+              <th>Duração</th>
+              <th>Status</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+
+          <!-- O corpo da tabela começa vazio.
+               O JavaScript preenche com dados vindos da API. -->
+          <tbody id="tabela-reservas"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Importa funções reutilizadas pelo frontend.
+       Exemplos: apiGet, apiPost, apiPut, showAlert, escapeHtml, formatDate etc. -->
+  <script src="js/api.js"></script>
+
+  <script>
+    /*
+      Função responsável por carregar os usuários cadastrados.
+
+      Ela chama a rota:
+      GET /api/usuarios
+
+      O backend consulta o banco MySQL e devolve os usuários.
+      Esses usuários são usados para preencher o select do formulário.
+    */
+    async function carregarUsuarios() {
+      const usuarios = await apiGet('/usuarios');
+
+      /*
+        fillSelect é uma função auxiliar criada no arquivo api.js.
+
+        Ela recebe:
+        - o ID do select;
+        - a lista de dados;
+        - o campo usado como value;
+        - o campo usado como texto visível;
+        - o texto inicial do select.
+      */
+      fillSelect(
+        'id_usuario',
+        usuarios,
+        'id_usuario',
+        'nome',
+        'Selecione um usuário'
+      );
+    }
+
+    /*
+      Função responsável por carregar os laboratórios cadastrados.
+
+      Ela chama a rota:
+      GET /api/laboratorios
+
+      O backend consulta a tabela laboratorios no MySQL
+      e devolve os dados para preencher o select.
+    */
+    async function carregarLaboratorios() {
+      const laboratorios = await apiGet('/laboratorios');
+
+      fillSelect(
+        'id_laboratorio',
+        laboratorios,
+        'id_laboratorio',
+        'nome',
+        'Selecione um laboratório'
+      );
+    }
+
+    /*
+      Função responsável por carregar as reservas cadastradas.
+
+      Ela chama a rota:
+      GET /api/reservas
+
+      No backend, essa rota consulta a View vw_reservas_detalhadas,
+      que já junta dados de reservas, usuários e laboratórios.
+    */
+    async function carregarReservas() {
+      /*
+        Enquanto os dados não chegam, mostra uma linha de carregamento.
+      */
+      setTableLoading('tabela-reservas', 9);
+
+      /*
+        Busca as reservas na API.
+      */
+      const reservas = await apiGet('/reservas');
+
+      /*
+        Pega o corpo da tabela pelo ID.
+      */
+      const tabela = document.getElementById('tabela-reservas');
+
+      /*
+        Se nenhuma reserva for encontrada, mostra uma mensagem amigável.
+      */
+      if (!reservas.length) {
+        setTableEmpty('tabela-reservas', 9, 'Nenhuma reserva cadastrada.');
+        return;
+      }
+
+      /*
+        Percorre todas as reservas retornadas pela API
+        e monta uma linha da tabela para cada uma.
+      */
+      tabela.innerHTML = reservas.map((reserva) => {
+        /*
+          Só permite cancelar reservas que ainda estejam ativas.
+        */
+        const podeCancelar = reserva.status === 'ATIVA';
+
+        /*
+          Se a reserva estiver ativa, mostra botão Cancelar.
+          Caso contrário, mostra apenas "-".
+        */
+        const acao = podeCancelar
+          ? `<button class="small danger" data-id="${escapeHtml(reserva.id_reserva)}" data-action="cancelar">Cancelar</button>`
+          : '-';
+
+        return `
+          <tr>
+            <!-- ID da reserva gerado automaticamente pelo banco. -->
+            <td>${escapeHtml(reserva.id_reserva)}</td>
+
+            <!-- Nome do usuário que fez a reserva. -->
+            <td>${escapeHtml(reserva.nome_usuario)}</td>
+
+            <!-- Nome do laboratório reservado. -->
+            <td>${escapeHtml(reserva.nome_laboratorio)}</td>
+
+            <!-- Data da reserva formatada para padrão brasileiro. -->
+            <td>${formatDate(reserva.data_reserva)}</td>
+
+            <!-- Horário de início. -->
+            <td>${formatTime(reserva.hora_inicio)}</td>
+
+            <!-- Horário de fim. -->
+            <td>${formatTime(reserva.hora_fim)}</td>
+
+            <!-- Duração calculada no banco pela function fn_duracao_reserva. -->
+            <td>${escapeHtml(reserva.duracao_minutos)} min</td>
+
+            <!-- Status visual: ATIVA, CANCELADA ou FINALIZADA. -->
+            <td>${statusBadge(reserva.status)}</td>
+
+            <!-- Botão de cancelar, quando permitido. -->
+            <td>${acao}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /*
+      Evento de envio do formulário de reserva.
+
+      Quando o usuário clica em "Criar reserva",
+      esta função captura os dados e envia para o backend.
+    */
+    document.getElementById('form-reserva').addEventListener('submit', async (event) => {
+      /*
+        Impede o navegador de recarregar a página automaticamente.
+      */
+      event.preventDefault();
+
+      /*
+        Guarda o formulário em uma variável.
+      */
+      const form = event.target;
+
+      try {
+        /*
+          Envia os dados da reserva para a rota:
+          POST /api/reservas
+
+          No backend, essa rota chama a procedure:
+          sp_criar_reserva
+
+          A procedure insere a reserva no banco.
+          Antes de inserir, a trigger verifica se existe conflito de horário.
+        */
+        await apiPost('/reservas', {
+          id_usuario: form.id_usuario.value,
+          id_laboratorio: form.id_laboratorio.value,
+          data_reserva: form.data_reserva.value,
+          hora_inicio: form.hora_inicio.value,
+          hora_fim: form.hora_fim.value
+        });
+
+        /*
+          Depois de cadastrar:
+          1. limpa o formulário;
+          2. recarrega a tabela de reservas;
+          3. mostra mensagem de sucesso.
+        */
+        form.reset();
+        await carregarReservas();
+        showAlert('Reserva criada com sucesso.');
+      } catch (error) {
+        /*
+          Se acontecer erro, mostra a mensagem na tela.
+
+          Exemplo:
+          - horário final menor que horário inicial;
+          - conflito de horário no mesmo laboratório;
+          - usuário ou laboratório não selecionado.
+        */
+        showAlert(error.message, 'error');
+      }
+    });
+
+    /*
+      Evento de clique na tabela de reservas.
+
+      Esse evento é usado para capturar cliques no botão Cancelar.
+      Ele usa delegação de evento, pois os botões são criados dinamicamente.
+    */
+    document.getElementById('tabela-reservas').addEventListener('click', async (event) => {
+      /*
+        Verifica se o elemento clicado é um botão de cancelar.
+      */
+      const button = event.target.closest('button[data-action="cancelar"]');
+
+      /*
+        Se o clique não foi em um botão de cancelar, a função para aqui.
+      */
+      if (!button) return;
+
+      try {
+        /*
+          Chama a rota:
+          PUT /api/reservas/:id/cancelar
+
+          No backend, essa rota chama a procedure:
+          sp_cancelar_reserva
+
+          A reserva não é apagada do banco.
+          Apenas muda o status para CANCELADA.
+        */
+        await apiPut(`/reservas/${button.dataset.id}/cancelar`);
+
+        /*
+          Atualiza a tabela e mostra mensagem de sucesso.
+        */
+        await carregarReservas();
+        showAlert('Reserva cancelada com sucesso.');
+      } catch (error) {
+        /*
+          Se não conseguir cancelar, mostra erro na tela.
+        */
+        showAlert(error.message, 'error');
+      }
+    });
+
+    /*
+      Evento do botão Atualizar.
+
+      Quando o usuário clica, a tabela de reservas é carregada novamente.
+    */
+    document.getElementById('btn-atualizar').addEventListener('click', () => {
+      carregarReservas().catch((error) => showAlert(error.message, 'error'));
+    });
+
+    /*
+      Quando a página abre, primeiro carrega:
+      - usuários;
+      - laboratórios.
+
+      Depois que os selects estão preenchidos,
+      carrega as reservas cadastradas.
+    */
+    Promise.all([
+      carregarUsuarios(),
+      carregarLaboratorios()
+    ])
+      .then(carregarReservas)
+      .catch((error) => showAlert(error.message, 'error'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- Define o conjunto de caracteres da página.
+       O UTF-8 permite usar acentos e caracteres especiais do português. -->
+  <meta charset="UTF-8">
+
+  <!-- Faz a página se adaptar ao tamanho da tela do usuário,
+       funcionando melhor em notebook, monitor ou celular. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Título que aparece na aba do navegador. -->
+  <title>NEXUS Lab</title>
+
+  <!-- Importa o arquivo CSS responsável pelo visual da aplicação. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- Cabeçalho principal do sistema.
+       Aqui aparece o nome da aplicação e uma breve descrição. -->
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <!-- Nome do sistema. -->
+        <h1>NEXUS Lab</h1>
+
+        <!-- Descrição curta do objetivo da aplicação. -->
+        <p>Sistema de reserva e controle de laboratórios integrado ao MySQL.</p>
+      </div>
+
+      <!-- Selo informativo destacando as principais tecnologias usadas. -->
+      <span class="header-badge">Node.js + Express + MySQL</span>
+    </div>
+  </header>
+
+  <!-- Menu de navegação entre as telas do sistema. -->
+  <nav>
+    <div class="nav-inner">
+      <!-- class="active" indica qual página está aberta no momento. -->
+      <a href="index.html" class="active">Início</a>
+
+      <!-- Link para a tela de cadastro e listagem de usuários. -->
+      <a href="usuarios.html">Usuários</a>
+
+      <!-- Link para a tela de laboratórios. -->
+      <a href="laboratorios.html">Laboratórios</a>
+
+      <!-- Link para a tela de equipamentos. -->
+      <a href="equipamentos.html">Equipamentos</a>
+
+      <!-- Link para a tela de reservas. -->
+      <a href="reservas.html">Reservas</a>
+
+      <!-- Link para a tela de manutenções. -->
+      <a href="manutencoes.html">Manutenções</a>
+
+      <!-- Link para a tela de relatórios baseados em Views do banco. -->
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <!-- Conteúdo principal da tela inicial. -->
+  <main>
+    <!-- Área usada para exibir mensagens de sucesso, erro ou informação.
+         Exemplo: "API funcionando corretamente" ou "Erro ao carregar dados". -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Título da página inicial. -->
+    <section class="page-title">
+      <h2>Painel inicial</h2>
+
+      <!-- Explica o objetivo do painel.
+           Essa tela mostra que o frontend está consumindo dados reais da API. -->
+      <p>
+        Use esta tela para demonstrar rapidamente que o frontend está consumindo
+        dados do backend e do banco de dados.
+      </p>
+    </section>
+
+    <!-- Cards de resumo.
+         Cada card mostra uma quantidade vinda do banco de dados. -->
+    <section class="dashboard-grid">
+
+      <!-- Card que mostra a quantidade de usuários cadastrados. -->
+      <article class="stat-card">
+        <h3>Usuários</h3>
+        <p>Cadastrados no sistema</p>
+
+        <!-- O valor começa como "-", mas será preenchido pelo JavaScript. -->
+        <strong id="total-usuarios">-</strong>
+      </article>
+
+      <!-- Card que mostra a quantidade de laboratórios cadastrados. -->
+      <article class="stat-card">
+        <h3>Laboratórios</h3>
+        <p>Ambientes disponíveis</p>
+
+        <!-- Será preenchido com o total retornado pela rota /api/laboratorios. -->
+        <strong id="total-laboratorios">-</strong>
+      </article>
+
+      <!-- Card que mostra a quantidade de equipamentos cadastrados. -->
+      <article class="stat-card">
+        <h3>Equipamentos</h3>
+        <p>Itens patrimoniais</p>
+
+        <!-- Será preenchido com o total retornado pela rota /api/equipamentos. -->
+        <strong id="total-equipamentos">-</strong>
+      </article>
+
+      <!-- Card que mostra a quantidade de reservas cadastradas. -->
+      <article class="stat-card">
+        <h3>Reservas</h3>
+        <p>Dados vindos de View</p>
+
+        <!-- Será preenchido com o total retornado pela rota /api/reservas. -->
+        <strong id="total-reservas">-</strong>
+      </article>
+    </section>
+
+    <!-- Seção com botões de atalho -->
+    <section class="section-space" style="display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 30px;">
+      <a class="button-link secondary" href="reservas.html" style="font-size: 16px; padding: 14px 24px;">Abrir reservas</a>
+      <a class="button-link" href="relatorios.html" style="font-size: 16px; padding: 14px 24px;">Abrir relatórios</a>
+    </section>
+  </main>
+
+  <!-- Importa o arquivo JavaScript compartilhado.
+       Nele ficam funções como apiGet(), apiPost(), showAlert(), formatDate() etc. -->
+  <script src="js/api.js"></script>
+
+  <script>
+    /*
+      Função responsável por carregar o resumo da tela inicial.
+
+      Essa função chama várias rotas da API ao mesmo tempo:
+      - /api/health
+      - /api/usuarios
+      - /api/laboratorios
+      - /api/equipamentos
+      - /api/reservas
+
+      Cada rota consulta o backend Node.js, e o backend consulta o banco MySQL.
+    */
+    async function carregarResumo() {
+      /*
+        Mostra uma mensagem inicial para o usuário saber que o sistema
+        está tentando buscar os dados.
+      */
+      showAlert('Conectando à API e carregando dados do MySQL...', 'info');
+
+      /*
+        Promise.all executa várias chamadas ao mesmo tempo.
+
+        Isso é melhor do que esperar uma chamada terminar para só depois
+        iniciar a próxima.
+      */
+      const [health, usuarios, laboratorios, equipamentos, reservas] = await Promise.all([
+        /*
+          Verifica se a API está funcionando.
+          Essa rota não consulta tabela, apenas confirma que o backend está online.
+        */
+        apiGet('/health'),
+
+        /*
+          Busca a lista de usuários cadastrados no banco.
+          O total será usado no card "Usuários".
+        */
+        apiGet('/usuarios'),
+
+        /*
+          Busca a lista de laboratórios cadastrados no banco.
+          O total será usado no card "Laboratórios".
+        */
+        apiGet('/laboratorios'),
+
+        /*
+          Busca a lista de equipamentos cadastrados no banco.
+          O total será usado no card "Equipamentos".
+        */
+        apiGet('/equipamentos'),
+
+        /*
+          Busca a lista de reservas.
+          No projeto, essa rota pode usar uma View para exibir dados detalhados.
+        */
+        apiGet('/reservas')
+      ]);
+
+      /*
+        Atualiza os cards da tela com a quantidade de registros
+        retornados pela API.
+      */
+      document.getElementById('total-usuarios').textContent = usuarios.length;
+      document.getElementById('total-laboratorios').textContent = laboratorios.length;
+      document.getElementById('total-equipamentos').textContent = equipamentos.length;
+      document.getElementById('total-reservas').textContent = reservas.length;
+
+      /*
+        Mostra mensagem final confirmando que a API respondeu corretamente.
+      */
+      showAlert(health.mensagem || 'API funcionando corretamente.');
+    }
+
+    /*
+      Chama a função carregarResumo() assim que a página abre.
+
+      Caso aconteça algum erro, por exemplo:
+      - Node.js desligado;
+      - MySQL desligado;
+      - usuário do banco incorreto;
+      - rota com problema;
+
+      o catch captura o erro e mostra uma mensagem amigável na tela.
+    */
+    carregarResumo().catch((error) => {
+      showAlert(`Não foi possível carregar o painel: ${error.message}`, 'error');
+    });
+  </script>
+</body>
+</html>

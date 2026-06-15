@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equipamentos | NEXUS Lab</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <h1>Equipamentos</h1>
+        <p>Controle de equipamentos vinculados aos laboratórios.</p>
+      </div>
+      <span class="header-badge">Índice por patrimônio e laboratório</span>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html">Usuários</a>
+      <a href="laboratorios.html">Laboratórios</a>
+      <a href="equipamentos.html" class="active">Equipamentos</a>
+      <a href="reservas.html">Reservas</a>
+      <a href="manutencoes.html">Manutenções</a>
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <main>
+    <div id="alert" class="alert"></div>
+
+    <section class="card">
+      <h2>Novo equipamento</h2>
+      <p>O número de patrimônio possui índice único para impedir duplicidade.</p>
+
+      <form id="form-equipamento">
+        <div class="form-grid">
+          <div>
+            <label for="id_laboratorio">Laboratório</label>
+            <select id="id_laboratorio" name="id_laboratorio" required></select>
+          </div>
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" name="nome" placeholder="Ex.: Servidor MySQL" required>
+          </div>
+          <div>
+            <label for="numero_patrimonio">Número de patrimônio</label>
+            <input id="numero_patrimonio" name="numero_patrimonio" placeholder="Ex.: PAT-DB-011" required>
+          </div>
+          <div>
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="DISPONIVEL">DISPONÍVEL</option>
+              <option value="MANUTENCAO">MANUTENÇÃO</option>
+              <option value="INATIVO">INATIVO</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Cadastrar equipamento</button>
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card section-space">
+      <div class="card-header">
+        <div>
+          <h2>Equipamentos cadastrados</h2>
+          <p>Consulta com JOIN entre equipamentos e laboratórios.</p>
+        </div>
+        <button class="secondary" id="btn-atualizar">Atualizar</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Equipamento</th>
+              <th>Patrimônio</th>
+              <th>Laboratório</th>
+              <th>Status</th>
+              <th>Criado em</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-equipamentos"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    async function carregarLaboratorios() {
+      const laboratorios = await apiGet('/laboratorios');
+      fillSelect('id_laboratorio', laboratorios, 'id_laboratorio', 'nome', 'Selecione um laboratório');
+    }
+
+    async function carregarEquipamentos() {
+      setTableLoading('tabela-equipamentos', 6);
+      const equipamentos = await apiGet('/equipamentos');
+      const tabela = document.getElementById('tabela-equipamentos');
+
+      if (!equipamentos.length) {
+        setTableEmpty('tabela-equipamentos', 6, 'Nenhum equipamento cadastrado.');
+        return;
+      }
+
+      tabela.innerHTML = equipamentos.map((equipamento) => `
+        <tr>
+          <td>${escapeHtml(equipamento.id_equipamento)}</td>
+          <td>${escapeHtml(equipamento.nome)}</td>
+          <td>${escapeHtml(equipamento.numero_patrimonio)}</td>
+          <td>${escapeHtml(equipamento.laboratorio)}</td>
+          <td>${statusBadge(equipamento.status)}</td>
+          <td>${formatDate(equipamento.data_criacao)}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('form-equipamento').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+
+      try {
+        await apiPost('/equipamentos', {
+          id_laboratorio: form.id_laboratorio.value,
+          nome: form.nome.value.trim(),
+          numero_patrimonio: form.numero_patrimonio.value.trim(),
+          status: form.status.value
+        });
+
+        form.reset();
+        await carregarEquipamentos();
+        showAlert('Equipamento cadastrado com sucesso.');
+      } catch (error) {
+        showAlert(error.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-atualizar').addEventListener('click', () => {
+      carregarEquipamentos().catch((error) => showAlert(error.message, 'error'));
+    });
+
+    carregarLaboratorios()
+      .then(carregarEquipamentos)
+      .catch((error) => showAlert(error.message, 'error'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuários | NEXUS Lab</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <h1>Usuários</h1>
+        <p>Cadastro de usuários e vínculo com grupos de permissão.</p>
+      </div>
+      <span class="header-badge">Tabela obrigatória: usuarios</span>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html" class="active">Usuários</a>
+      <a href="laboratorios.html">Laboratórios</a>
+      <a href="equipamentos.html">Equipamentos</a>
+      <a href="reservas.html">Reservas</a>
+      <a href="manutencoes.html">Manutenções</a>
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <main>
+    <div id="alert" class="alert"></div>
+
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <h2>Novo usuário</h2>
+          <p>O cadastro chama uma procedure no banco, que também gera o ID e criptografa a senha com SHA2.</p>
+        </div>
+      </div>
+
+      <form id="form-usuario">
+        <div class="form-grid">
+          <div>
+            <label for="nome">Nome</label>
+            <input id="nome" name="nome" placeholder="Ex.: Maria Silva" required>
+          </div>
+          <div>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" placeholder="usuario@email.com" required>
+          </div>
+          <div>
+            <label for="senha">Senha</label>
+            <input id="senha" name="senha" type="password" minlength="4" required>
+          </div>
+          <div>
+            <label for="id_grupo">Grupo</label>
+            <select id="id_grupo" name="id_grupo"></select>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Cadastrar usuário</button>
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card section-space">
+      <div class="card-header">
+        <div>
+          <h2>Usuários cadastrados</h2>
+          <p>Consulta com agrupamento dos grupos vinculados ao usuário.</p>
+        </div>
+        <button class="secondary" id="btn-atualizar">Atualizar</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th>Grupos</th>
+              <th>Ativo</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-usuarios"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    async function carregarGrupos() {
+      const grupos = await apiGet('/grupos');
+      fillSelect('id_grupo', grupos, 'id_grupo', 'nome_grupo', 'Selecione um grupo');
+    }
+
+    async function carregarUsuarios() {
+      setTableLoading('tabela-usuarios', 6);
+      const usuarios = await apiGet('/usuarios');
+      const tabela = document.getElementById('tabela-usuarios');
+
+      if (!usuarios.length) {
+        setTableEmpty('tabela-usuarios', 6, 'Nenhum usuário cadastrado.');
+        return;
+      }
+
+      tabela.innerHTML = usuarios.map((usuario) => `
+        <tr>
+          <td>${escapeHtml(usuario.id_usuario)}</td>
+          <td>${escapeHtml(usuario.nome)}</td>
+          <td>${escapeHtml(usuario.email)}</td>
+          <td>${escapeHtml(usuario.grupos)}</td>
+          <td>${booleanBadge(usuario.ativo)}</td>
+          <td>
+            <button class="small secondary" data-id="${escapeHtml(usuario.id_usuario)}" data-action="alternar-status">
+              Alternar
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('form-usuario').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+
+      try {
+        await apiPost('/usuarios', {
+          nome: form.nome.value.trim(),
+          email: form.email.value.trim(),
+          senha: form.senha.value,
+          id_grupo: form.id_grupo.value || null
+        });
+
+        form.reset();
+        await carregarUsuarios();
+        showAlert('Usuário cadastrado com sucesso.');
+      } catch (error) {
+        showAlert(error.message, 'error');
+      }
+    });
+
+    document.getElementById('tabela-usuarios').addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-action="alternar-status"]');
+      if (!button) return;
+
+      try {
+        await apiPatch(`/usuarios/${button.dataset.id}/alternar-status`);
+        await carregarUsuarios();
+        showAlert('Status do usuário atualizado com sucesso.');
+      } catch (error) {
+        showAlert(error.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-atualizar').addEventListener('click', () => {
+      carregarUsuarios().catch((error) => showAlert(error.message, 'error'));
+    });
+
+    carregarGrupos()
+      .then(carregarUsuarios)
+      .catch((error) => showAlert(error.message, 'error'));
+  </script>
+</body>
+</html>

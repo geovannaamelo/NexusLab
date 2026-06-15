@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- Define o padrão de caracteres da página.
+       O UTF-8 permite usar acentos e caracteres especiais. -->
+  <meta charset="UTF-8">
+
+  <!-- Faz a página se adaptar ao tamanho da tela do usuário. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Título que aparece na aba do navegador. -->
+  <title>Laboratórios | NEXUS Lab</title>
+
+  <!-- Importa o arquivo CSS responsável pelo estilo visual da aplicação. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- Cabeçalho principal da tela de laboratórios. -->
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <!-- Título da página. -->
+        <h1>Laboratórios</h1>
+
+        <!-- Pequena explicação sobre a função da tela. -->
+        <p>Cadastro e consulta dos laboratórios disponíveis para reserva.</p>
+      </div>
+
+      <!-- Selo informativo explicando a relação dessa entidade no banco. -->
+      <span class="header-badge">Relacionamento com reservas e equipamentos</span>
+    </div>
+  </header>
+
+  <!-- Menu de navegação entre as páginas do sistema. -->
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html">Usuários</a>
+
+      <!-- class="active" indica que esta é a página aberta no momento. -->
+      <a href="laboratorios.html" class="active">Laboratórios</a>
+
+      <a href="equipamentos.html">Equipamentos</a>
+      <a href="reservas.html">Reservas</a>
+      <a href="manutencoes.html">Manutenções</a>
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <!-- Conteúdo principal da página. -->
+  <main>
+    <!-- Área onde aparecem mensagens de sucesso, erro ou aviso. -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Card responsável pelo cadastro de um novo laboratório. -->
+    <section class="card">
+      <h2>Novo laboratório</h2>
+
+      <!-- Explicação importante para a apresentação:
+           o ID não é digitado pelo usuário, ele é criado pelo próprio banco. -->
+      <p>O ID do laboratório é gerado automaticamente pelo banco por meio de function e trigger.</p>
+
+      <!-- Formulário de cadastro de laboratório. -->
+      <form id="form-laboratorio">
+        <div class="form-grid">
+
+          <!-- Campo para informar o nome do laboratório. -->
+          <div>
+            <label for="nome">Nome</label>
+            <input 
+              id="nome" 
+              name="nome" 
+              placeholder="Ex.: Laboratório de Banco de Dados" 
+              required
+            >
+          </div>
+
+          <!-- Campo para informar onde o laboratório fica localizado. -->
+          <div>
+            <label for="localizacao">Localização</label>
+            <input 
+              id="localizacao" 
+              name="localizacao" 
+              placeholder="Ex.: Bloco A - Sala 101" 
+              required
+            >
+          </div>
+
+          <!-- Campo para informar quantas pessoas cabem no laboratório. -->
+          <div>
+            <label for="capacidade">Capacidade</label>
+            <input 
+              id="capacidade" 
+              name="capacidade" 
+              type="number" 
+              min="1" 
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Botões do formulário. -->
+        <div class="actions">
+          <!-- Envia os dados para a API cadastrar no banco. -->
+          <button type="submit">Cadastrar laboratório</button>
+
+          <!-- Limpa os campos do formulário. -->
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Card responsável por mostrar os laboratórios já cadastrados. -->
+    <section class="card section-space">
+      <div class="card-header">
+        <div>
+          <h2>Laboratórios cadastrados</h2>
+
+          <!-- Explicação simples sobre a tabela abaixo. -->
+          <p>Listagem dos ambientes que podem receber reservas.</p>
+        </div>
+
+        <!-- Botão para recarregar manualmente a tabela. -->
+        <button class="secondary" id="btn-atualizar">Atualizar</button>
+      </div>
+
+      <!-- Área da tabela de laboratórios. -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nome</th>
+              <th>Localização</th>
+              <th>Capacidade</th>
+              <th>Ativo</th>
+              <th>Criado em</th>
+            </tr>
+          </thead>
+
+          <!-- O corpo da tabela começa vazio.
+               O JavaScript preenche essa parte com dados vindos do banco. -->
+          <tbody id="tabela-laboratorios"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Importa funções gerais usadas em várias telas.
+       Exemplos: apiGet, apiPost, showAlert, escapeHtml, formatDate e booleanBadge. -->
+  <script src="js/api.js"></script>
+
+  <script>
+    /*
+      Função responsável por carregar os laboratórios cadastrados.
+
+      Ela chama a rota:
+      GET /api/laboratorios
+
+      Essa rota está no backend Node.js.
+      O backend consulta a tabela laboratorios no MySQL
+      e devolve os dados para o frontend.
+    */
+    async function carregarLaboratorios() {
+      /*
+        Enquanto os dados não chegam, a tabela mostra
+        a mensagem "Carregando dados...".
+      */
+      setTableLoading('tabela-laboratorios', 6);
+
+      /*
+        apiGet é uma função criada no arquivo js/api.js.
+        Ela faz a comunicação com o backend usando fetch().
+      */
+      const laboratorios = await apiGet('/laboratorios');
+
+      /*
+        Pega o corpo da tabela pelo ID.
+        É aqui que as linhas serão inseridas.
+      */
+      const tabela = document.getElementById('tabela-laboratorios');
+
+      /*
+        Se o banco não retornar nenhum laboratório,
+        mostra uma mensagem de tabela vazia.
+      */
+      if (!laboratorios.length) {
+        setTableEmpty('tabela-laboratorios', 6, 'Nenhum laboratório cadastrado.');
+        return;
+      }
+
+      /*
+        Para cada laboratório retornado pela API,
+        cria uma linha HTML dentro da tabela.
+      */
+      tabela.innerHTML = laboratorios.map((lab) => `
+        <tr>
+          <!-- ID gerado automaticamente pelo banco. Exemplo: LAB000001 -->
+          <td>${escapeHtml(lab.id_laboratorio)}</td>
+
+          <!-- Nome do laboratório. -->
+          <td>${escapeHtml(lab.nome)}</td>
+
+          <!-- Localização física do laboratório. -->
+          <td>${escapeHtml(lab.localizacao)}</td>
+
+          <!-- Capacidade máxima do laboratório. -->
+          <td>${escapeHtml(lab.capacidade)}</td>
+
+          <!-- Mostra "Sim" ou "Não" de forma visual.
+               Essa função vem do arquivo api.js. -->
+          <td>${booleanBadge(lab.ativo)}</td>
+
+          <!-- Formata a data de criação para o padrão brasileiro. -->
+          <td>${formatDate(lab.data_criacao)}</td>
+        </tr>
+      `).join('');
+    }
+
+    /*
+      Evento de envio do formulário.
+
+      Quando o usuário clica em "Cadastrar laboratório",
+      esta função é executada.
+    */
+    document.getElementById('form-laboratorio').addEventListener('submit', async (event) => {
+      /*
+        Impede o comportamento padrão do formulário,
+        que seria recarregar a página inteira.
+      */
+      event.preventDefault();
+
+      /*
+        Guarda o formulário em uma variável para acessar os campos.
+      */
+      const form = event.target;
+
+      try {
+        /*
+          Envia os dados digitados para o backend.
+
+          A rota chamada é:
+          POST /api/laboratorios
+
+          O backend recebe:
+          - nome
+          - localizacao
+          - capacidade
+
+          Depois executa um INSERT na tabela laboratorios.
+        */
+        await apiPost('/laboratorios', {
+          nome: form.nome.value.trim(),
+          localizacao: form.localizacao.value.trim(),
+          capacidade: Number(form.capacidade.value)
+        });
+
+        /*
+          Depois do cadastro:
+          1. limpa o formulário;
+          2. recarrega a tabela;
+          3. mostra mensagem de sucesso.
+        */
+        form.reset();
+        await carregarLaboratorios();
+        showAlert('Laboratório cadastrado com sucesso.');
+      } catch (error) {
+        /*
+          Se acontecer algum erro, a mensagem aparece na tela.
+          Exemplo: nome duplicado ou problema de conexão com o banco.
+        */
+        showAlert(error.message, 'error');
+      }
+    });
+
+    /*
+      Evento do botão "Atualizar".
+
+      Ele busca novamente os dados do banco e atualiza a tabela.
+    */
+    document.getElementById('btn-atualizar').addEventListener('click', () => {
+      carregarLaboratorios().catch((error) => showAlert(error.message, 'error'));
+    });
+
+    /*
+      Quando a página abre, essa linha carrega automaticamente
+      os laboratórios já cadastrados no banco.
+    */
+    carregarLaboratorios().catch((error) => showAlert(error.message, 'error'));
+  </script>
+</body>
+</html>

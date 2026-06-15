@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manutenções | NEXUS Lab</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <h1>Manutenções</h1>
+        <p>Registro de manutenções dos equipamentos dos laboratórios.</p>
+      </div>
+      <span class="header-badge">Trigger altera status do equipamento</span>
+    </div>
+  </header>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html">Usuários</a>
+      <a href="laboratorios.html">Laboratórios</a>
+      <a href="equipamentos.html">Equipamentos</a>
+      <a href="reservas.html">Reservas</a>
+      <a href="manutencoes.html" class="active">Manutenções</a>
+      <a href="relatorios.html">Relatórios</a>
+    </div>
+  </nav>
+
+  <main>
+    <div id="alert" class="alert"></div>
+
+    <section class="card">
+      <h2>Nova manutenção</h2>
+      <p>Ao cadastrar uma manutenção, uma trigger atualiza o equipamento para o status <strong>MANUTENCAO</strong> e registra auditoria.</p>
+
+      <form id="form-manutencao">
+        <div class="form-grid">
+          <div>
+            <label for="id_equipamento">Equipamento</label>
+            <select id="id_equipamento" name="id_equipamento" required></select>
+          </div>
+          <div>
+            <label for="descricao">Descrição</label>
+            <textarea id="descricao" name="descricao" rows="3" placeholder="Descreva o problema identificado" required></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit">Registrar manutenção</button>
+          <button type="reset" class="secondary">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card section-space">
+      <div class="card-header">
+        <div>
+          <h2>Manutenções cadastradas</h2>
+          <p>Histórico de manutenções abertas e concluídas.</p>
+        </div>
+        <button class="secondary" id="btn-atualizar">Atualizar</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Equipamento</th>
+              <th>Patrimônio</th>
+              <th>Descrição</th>
+              <th>Abertura</th>
+              <th>Fechamento</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-manutencoes"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    async function carregarEquipamentos() {
+      const equipamentos = await apiGet('/equipamentos');
+      const select = document.getElementById('id_equipamento');
+      select.innerHTML = '<option value="">Selecione um equipamento</option>';
+
+      equipamentos.forEach((equipamento) => {
+        const option = document.createElement('option');
+        option.value = equipamento.id_equipamento;
+        option.textContent = `${equipamento.nome} - ${equipamento.numero_patrimonio}`;
+        select.appendChild(option);
+      });
+    }
+
+    async function carregarManutencoes() {
+      setTableLoading('tabela-manutencoes', 7);
+      const manutencoes = await apiGet('/manutencoes');
+      const tabela = document.getElementById('tabela-manutencoes');
+
+      if (!manutencoes.length) {
+        setTableEmpty('tabela-manutencoes', 7, 'Nenhuma manutenção cadastrada.');
+        return;
+      }
+
+      tabela.innerHTML = manutencoes.map((item) => `
+        <tr>
+          <td>${escapeHtml(item.id_manutencao)}</td>
+          <td>${escapeHtml(item.equipamento)}</td>
+          <td>${escapeHtml(item.numero_patrimonio)}</td>
+          <td>${escapeHtml(item.descricao)}</td>
+          <td>${formatDate(item.data_abertura)}</td>
+          <td>${formatDate(item.data_fechamento)}</td>
+          <td>${statusBadge(item.status)}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('form-manutencao').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+
+      try {
+        await apiPost('/manutencoes', {
+          id_equipamento: form.id_equipamento.value,
+          descricao: form.descricao.value.trim()
+        });
+
+        form.reset();
+        await Promise.all([carregarEquipamentos(), carregarManutencoes()]);
+        showAlert('Manutenção cadastrada com sucesso.');
+      } catch (error) {
+        showAlert(error.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-atualizar').addEventListener('click', () => {
+      carregarManutencoes().catch((error) => showAlert(error.message, 'error'));
+    });
+
+    Promise.all([carregarEquipamentos(), carregarManutencoes()])
+      .catch((error) => showAlert(error.message, 'error'));
+  </script>
+</body>
+</html>

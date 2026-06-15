@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- Define o conjunto de caracteres da página.
+       O UTF-8 permite usar acentos e caracteres especiais do português. -->
+  <meta charset="UTF-8">
+
+  <!-- Faz a página se adaptar a diferentes tamanhos de tela. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Título que aparece na aba do navegador. -->
+  <title>Relatórios | NEXUS Lab</title>
+
+  <!-- Importa o arquivo CSS principal do sistema. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <!-- Cabeçalho da página de relatórios. -->
+  <header class="app-header">
+    <div class="header-content">
+      <div>
+        <!-- Título da tela. -->
+        <h1>Relatórios</h1>
+
+        <!-- Explica que os dados mostrados aqui vêm de Views do MySQL. -->
+        <p>Dados exibidos diretamente de Views do banco de dados MySQL.</p>
+      </div>
+
+      <!-- Selo destacando o requisito obrigatório do trabalho. -->
+      <span class="header-badge">Requisito obrigatório: exibir View</span>
+    </div>
+  </header>
+
+  <!-- Menu de navegação entre as páginas do sistema. -->
+  <nav>
+    <div class="nav-inner">
+      <a href="index.html">Início</a>
+      <a href="usuarios.html">Usuários</a>
+      <a href="laboratorios.html">Laboratórios</a>
+      <a href="equipamentos.html">Equipamentos</a>
+      <a href="reservas.html">Reservas</a>
+      <a href="manutencoes.html">Manutenções</a>
+
+      <!-- class="active" indica que esta é a página aberta no momento. -->
+      <a href="relatorios.html" class="active">Relatórios</a>
+    </div>
+  </nav>
+
+  <!-- Conteúdo principal da página. -->
+  <main>
+    <!-- Área usada para exibir mensagens de sucesso ou erro. -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Primeiro relatório: View de reservas detalhadas. -->
+    <section class="card">
+      <div class="card-header">
+        <div>
+          <!-- Nome da View usada neste relatório. -->
+          <h2>View: vw_reservas_detalhadas</h2>
+
+          <!-- Explicação da finalidade da View. -->
+          <p>
+            Consolida reservas, usuários, laboratórios e duração calculada por function.
+          </p>
+        </div>
+
+        <!-- Botão para recarregar todos os relatórios manualmente. -->
+        <button class="secondary" id="btn-atualizar">Atualizar relatórios</button>
+      </div>
+
+      <!-- Tabela que exibirá os dados retornados pela View vw_reservas_detalhadas. -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Reserva</th>
+              <th>Usuário</th>
+              <th>E-mail</th>
+              <th>Laboratório</th>
+              <th>Data</th>
+              <th>Horário</th>
+              <th>Duração</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <!-- O corpo da tabela começa vazio.
+               O JavaScript irá preencher com os dados vindos do banco. -->
+          <tbody id="tabela-reservas-view"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Segundo relatório: View de ocupação dos laboratórios. -->
+    <section class="card section-space">
+      <!-- Nome da segunda View. -->
+      <h2>View: vw_ocupacao_laboratorios</h2>
+
+      <!-- Explicação do objetivo da View. -->
+      <p>Mostra a quantidade de reservas e os minutos reservados por laboratório.</p>
+
+      <!-- Tabela que exibirá os dados da View vw_ocupacao_laboratorios. -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Laboratório</th>
+              <th>Capacidade</th>
+              <th>Total de reservas</th>
+              <th>Reservas ativas</th>
+              <th>Minutos reservados</th>
+            </tr>
+          </thead>
+
+          <!-- O JavaScript preencherá esta tabela com os dados da View. -->
+          <tbody id="tabela-ocupacao-view"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Terceiro relatório: View de equipamentos e manutenções. -->
+    <section class="card section-space">
+      <!-- Nome da terceira View. -->
+      <h2>View: vw_equipamentos_manutencao</h2>
+
+      <!-- Explicação do objetivo da View. -->
+      <p>Lista equipamentos e a quantidade de manutenções abertas.</p>
+
+      <!-- Tabela que exibirá os dados da View vw_equipamentos_manutencao. -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Laboratório</th>
+              <th>Equipamento</th>
+              <th>Patrimônio</th>
+              <th>Status</th>
+              <th>Manutenções abertas</th>
+            </tr>
+          </thead>
+
+          <!-- O JavaScript preencherá esta tabela com os dados da View. -->
+          <tbody id="tabela-equipamentos-view"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Importa funções reutilizadas no frontend.
+       Exemplos: apiGet, showAlert, escapeHtml, formatDate, formatTime e statusBadge. -->
+  <script src="js/api.js"></script>
+
+  <script>
+    /*
+      Função responsável por carregar o relatório de reservas detalhadas.
+
+      Ela chama a rota:
+      GET /api/relatorios/reservas-detalhadas
+
+      Essa rota, no backend, executa uma consulta na View:
+      vw_reservas_detalhadas
+
+      Essa View junta dados das tabelas:
+      - reservas
+      - usuarios
+      - laboratorios
+
+      Além disso, ela usa a function fn_duracao_reserva()
+      para calcular a duração da reserva em minutos.
+    */
+    async function carregarReservasView() {
+      /*
+        Enquanto os dados não chegam, mostra "Carregando dados..."
+        dentro da tabela.
+      */
+      setTableLoading('tabela-reservas-view', 8);
+
+      try {
+        /*
+          Busca no backend os dados da View vw_reservas_detalhadas.
+        */
+        const reservas = await apiGet('/relatorios/reservas-detalhadas');
+
+        /*
+          Pega o corpo da tabela pelo ID.
+        */
+        const tabela = document.getElementById('tabela-reservas-view');
+
+        /*
+          Se a View não retornar nenhum registro,
+          mostra uma mensagem amigável na tabela.
+        */
+        if (!reservas.length) {
+          setTableEmpty('tabela-reservas-view', 8, 'Nenhuma reserva encontrada na View.');
+          return;
+        }
+
+        /*
+          Percorre a lista de reservas retornadas pela API
+          e cria uma linha da tabela para cada reserva.
+        */
+        tabela.innerHTML = reservas.map((reserva) => `
+          <tr>
+            <!-- ID da reserva gerado pelo banco. -->
+            <td>${escapeHtml(reserva.id_reserva)}</td>
+
+            <!-- Nome do usuário que fez a reserva. -->
+            <td>${escapeHtml(reserva.nome_usuario)}</td>
+
+            <!-- E-mail do usuário. -->
+            <td>${escapeHtml(reserva.email_usuario)}</td>
+
+            <!-- Nome do laboratório reservado. -->
+            <td>${escapeHtml(reserva.nome_laboratorio)}</td>
+
+            <!-- Data da reserva formatada para padrão brasileiro. -->
+            <td>${formatDate(reserva.data_reserva)}</td>
+
+            <!-- Horário inicial e final da reserva. -->
+            <td>${formatTime(reserva.hora_inicio)} às ${formatTime(reserva.hora_fim)}</td>
+
+            <!-- Duração calculada pela function fn_duracao_reserva no MySQL. -->
+            <td>${escapeHtml(reserva.duracao_minutos)} min</td>
+
+            <!-- Status visual da reserva: ATIVA, CANCELADA ou FINALIZADA. -->
+            <td>${statusBadge(reserva.status)}</td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        /*
+          Se ocorrer erro ao consultar a View,
+          a mensagem é exibida dentro da tabela.
+        */
+        setTableError('tabela-reservas-view', 8, error.message);
+
+        /*
+          O erro é lançado novamente para que a função principal
+          saiba que um dos relatórios falhou.
+        */
+        throw error;
+      }
+    }
+
+    /*
+      Função responsável por carregar o relatório de ocupação dos laboratórios.
+
+      Ela chama a rota:
+      GET /api/relatorios/ocupacao-laboratorios
+
+      Essa rota consulta a View:
+      vw_ocupacao_laboratorios
+
+      Essa View mostra:
+      - laboratório;
+      - capacidade;
+      - total de reservas;
+      - reservas ativas;
+      - minutos reservados.
+    */
+    async function carregarOcupacaoView() {
+      /*
+        Mostra mensagem de carregamento enquanto os dados vêm do backend.
+      */
+      setTableLoading('tabela-ocupacao-view', 5);
+
+      try {
+        /*
+          Busca os dados da View vw_ocupacao_laboratorios.
+        */
+        const ocupacoes = await apiGet('/relatorios/ocupacao-laboratorios');
+
+        /*
+          Pega o corpo da tabela.
+        */
+        const tabela = document.getElementById('tabela-ocupacao-view');
+
+        /*
+          Se não houver dados, mostra mensagem de tabela vazia.
+        */
+        if (!ocupacoes.length) {
+          setTableEmpty('tabela-ocupacao-view', 5, 'Nenhum laboratório encontrado na View.');
+          return;
+        }
+
+        /*
+          Cria uma linha da tabela para cada laboratório retornado pela View.
+        */
+        tabela.innerHTML = ocupacoes.map((item) => `
+          <tr>
+            <!-- Nome do laboratório. -->
+            <td>${escapeHtml(item.laboratorio)}</td>
+
+            <!-- Capacidade máxima do laboratório. -->
+            <td>${escapeHtml(item.capacidade)}</td>
+
+            <!-- Quantidade total de reservas desse laboratório. -->
+            <td>${escapeHtml(item.total_reservas)}</td>
+
+            <!-- Quantidade de reservas ainda ativas. -->
+            <td>${escapeHtml(item.reservas_ativas)}</td>
+
+            <!-- Tempo total reservado, em minutos. -->
+            <td>${escapeHtml(item.minutos_reservados || 0)}</td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        /*
+          Mostra o erro dentro da tabela caso a View não carregue.
+        */
+        setTableError('tabela-ocupacao-view', 5, error.message);
+        throw error;
+      }
+    }
+
+    /*
+      Função responsável por carregar o relatório de equipamentos em manutenção.
+
+      Ela chama a rota:
+      GET /api/relatorios/equipamentos-manutencao
+
+      Essa rota consulta a View:
+      vw_equipamentos_manutencao
+
+      Essa View mostra:
+      - laboratório;
+      - equipamento;
+      - número de patrimônio;
+      - status do equipamento;
+      - quantidade de manutenções abertas.
+    */
+    async function carregarEquipamentosView() {
+      /*
+        Mostra mensagem de carregamento na tabela.
+      */
+      setTableLoading('tabela-equipamentos-view', 5);
+
+      try {
+        /*
+          Busca os dados da View vw_equipamentos_manutencao.
+        */
+        const equipamentos = await apiGet('/relatorios/equipamentos-manutencao');
+
+        /*
+          Pega o corpo da tabela.
+        */
+        const tabela = document.getElementById('tabela-equipamentos-view');
+
+        /*
+          Se a View não retornar dados, mostra mensagem de tabela vazia.
+        */
+        if (!equipamentos.length) {
+          setTableEmpty('tabela-equipamentos-view', 5, 'Nenhum equipamento encontrado na View.');
+          return;
+        }
+
+        /*
+          Cria uma linha da tabela para cada equipamento retornado pela View.
+        */
+        tabela.innerHTML = equipamentos.map((item) => `
+          <tr>
+            <!-- Nome do laboratório onde está o equipamento. -->
+            <td>${escapeHtml(item.laboratorio)}</td>
+
+            <!-- Nome do equipamento. -->
+            <td>${escapeHtml(item.equipamento)}</td>
+
+            <!-- Número de patrimônio do equipamento. -->
+            <td>${escapeHtml(item.numero_patrimonio)}</td>
+
+            <!-- Status atual do equipamento. -->
+            <td>${statusBadge(item.status_equipamento)}</td>
+
+            <!-- Quantidade de manutenções abertas para o equipamento. -->
+            <td>${escapeHtml(item.manutencoes_abertas)}</td>
+          </tr>
+        `).join('');
+      } catch (error) {
+        /*
+          Mostra erro na tabela caso a View não seja carregada.
+        */
+        setTableError('tabela-equipamentos-view', 5, error.message);
+        throw error;
+      }
+    }
+
+    /*
+      Função principal da tela de relatórios.
+
+      Ela executa os três carregamentos de Views:
+      - reservas detalhadas;
+      - ocupação dos laboratórios;
+      - equipamentos em manutenção.
+
+      Promise.allSettled foi usado porque ele permite saber
+      se alguma requisição falhou sem impedir a conclusão das outras.
+    */
+    async function carregarTodosRelatorios() {
+      const resultados = await Promise.allSettled([
+        carregarReservasView(),
+        carregarOcupacaoView(),
+        carregarEquipamentosView()
+      ]);
+
+      /*
+        Verifica se algum dos relatórios falhou.
+      */
+      const possuiErro = resultados.some((resultado) => resultado.status === 'rejected');
+
+      /*
+        Se alguma View falhar, mostra mensagem de erro.
+      */
+      if (possuiErro) {
+        showAlert(
+          'Alguma View não carregou. Verifique o erro exibido na tabela ou no terminal do Node.',
+          'error'
+        );
+        return;
+      }
+
+      /*
+        Se todas as Views carregaram corretamente,
+        mostra mensagem de sucesso.
+      */
+      showAlert('Relatórios carregados com sucesso a partir das Views do MySQL.');
+    }
+
+    /*
+      Adiciona evento ao botão "Atualizar relatórios".
+
+      Quando o usuário clica, todos os relatórios são carregados novamente.
+    */
+    document.getElementById('btn-atualizar').addEventListener('click', carregarTodosRelatorios);
+
+    /*
+      Quando a página abre, os relatórios são carregados automaticamente.
+    */
+    carregarTodosRelatorios();
+  </script>
+</body>
+</html>
